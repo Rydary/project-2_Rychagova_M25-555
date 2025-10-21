@@ -1,0 +1,10 @@
+{
+    "first_table": {
+        "columns": {
+            "ID": "int",
+            "name": "str",
+            "age": "int"
+        },
+        "rows": []
+    }
+}
