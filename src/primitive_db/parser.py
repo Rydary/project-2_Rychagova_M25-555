@@ -1,4 +1,3 @@
-import re
 
 def parse_condition(condition_str: str) -> dict:
     """

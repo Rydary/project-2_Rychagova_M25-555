@@ -1,9 +1,10 @@
 import shlex
-from .utils import load_metadata, save_metadata
-from .core import create_table, drop_table, list_tables, insert, select, update, delete
-from .parser import parse_where, parse_set
+
 from prettytable import PrettyTable
 
+from .core import create_table, delete, drop_table, insert, list_tables, select, update
+from .parser import parse_set, parse_where
+from .utils import load_metadata, save_metadata
 
 COMMANDS = {
      'exit': 'выйти из программы',

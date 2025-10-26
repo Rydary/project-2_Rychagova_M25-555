@@ -1,5 +1,9 @@
-from .parser import parse_where, parse_set
+from .cache_utils import create_cacher
+from .decorators import confirm_action, handle_db_errors, log_time
+from .parser import parse_set, parse_where
 
+
+@handle_db_errors
 def create_table(metadata, table_name, columns):
     if table_name in metadata:
         print(f'Таблица {table_name} уже существует')
@@ -13,11 +17,7 @@ def create_table(metadata, table_name, columns):
     parsed_columns = {}
     
     for col in columns:
-        try:
-            name, dtype = col.split(':')
-        except ValueError:
-            print(f'Неверный формат столбца {col}')
-            return metadata
+        name, dtype = col.split(':')
         
         if dtype not in allowed_types:
             print(f'Ошибка: недопустимый тип данных {dtype}')
@@ -34,7 +34,7 @@ def create_table(metadata, table_name, columns):
     print(f'Таблица {table_name} успешно создана!')
     return metadata
 
-
+@confirm_action
 def drop_table(metadata, table_name):
     if table_name not in metadata:
         print(f'Таблицы {table_name} не существует!')
@@ -45,12 +45,12 @@ def drop_table(metadata, table_name):
         return metadata
     
     
-    
+@log_time    
 def list_tables(metadata):
         for table_name in metadata.keys():
             return list(metadata.keys())
                
-        
+@handle_db_errors       
 def insert(metadata, table_name, values):
     table = metadata.get(table_name)
     
@@ -69,14 +69,14 @@ def insert(metadata, table_name, values):
     record = {}
     for name, val in zip(col_names, values):
         expected_type = columns[name]
-        try:
-            if expected_type == 'int':
-                val = int(val)
-            elif expected_type == 'bool':
-                val = val.lower() in ('true', '1', 'yes')
-            elif expected_type == 'str':
-                val = str(val)
-        except Exception:
+    
+        if expected_type == 'int':
+            val = int(val)
+        elif expected_type == 'bool':
+            val = val.lower() in ('true', '1', 'yes')
+        elif expected_type == 'str':
+            val = str(val)
+        else:
             print(f'Ошибка! Столбец {name} должен быть типа {expected_type}.')
             return False
         record[name] = val
@@ -88,29 +88,29 @@ def insert(metadata, table_name, values):
     table.setdefault('rows', []).append(record)
     print(f'Добавлена запись с ID={new_id}')
     return True
-    
- 
-def select(table_data, where_clause=None):
 
+cache_result = create_cacher()
+    
+@log_time 
+def select(table_data, where_clause=None):
     if not table_data:
         print('Таблица пуста!')
-        
-    if not where_clause:
-        return table_data
+        return []
     
-    filtered_data = []
-    for row in table_data:
-        match = True
-        for key, value in where_clause.items():
-            if key not in row or row[key] != value:
-                match = False
-                break
-        if match:
-            filtered_data.append(row)        
+    key = str(where_clause) if where_clause else 'all_rows'
     
-    return filtered_data
-        
+    def compute_result():    
+        if not where_clause:
+            return table_data
+        return [
+            row for row in table_data
+            if all(row.get(k) == v for k, v in where_clause.items())
+        ]
 
+    return cache_result(key, compute_result)
+     
+        
+@log_time
 def update(table_data, set_clause, where_clause):
     if not table_data:
         print('Таблица пуста!')
@@ -148,7 +148,8 @@ def update(table_data, set_clause, where_clause):
         print(f'Обновлено записей: {updated_count}')
     
     return table_data      
-          
+ 
+@confirm_action          
 def delete(table_data, where_clause):
     if not table_data:
         print('Таблица пуста!')
